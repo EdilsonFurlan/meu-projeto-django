@@ -5,5 +5,6 @@ app_name = 'inicio'
 
 urlpatterns = [
     path('', views.inicio, name='inicio'),
+    path('api/upload-video/', views.upload_video, name='upload_video'),
     
 ]
