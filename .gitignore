@@ -1,0 +1,19 @@
+# Arquivos de Cache e Bytecode do Python
+__pycache__/
+*.pyc
+
+# Banco de dados (se estiver usando o padrão)
+*.sqlite3
+db.sqlite3
+
+# Pasta de Ambiente Virtual
+venv/
+env/
+.venv/
+
+# Pasta de Mídia (onde os vídeos e imagens são salvos)
+media/
+
+# Outras pastas e arquivos comuns do Django/Python
+.env
+*.log

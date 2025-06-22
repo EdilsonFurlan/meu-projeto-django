@@ -7,30 +7,43 @@ def inicio(request):
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.files.storage import default_storage
-import uuid
+import os
 
-@csrf_exempt # Importante para permitir POSTs de apps externos sem o token CSRF
+@csrf_exempt
 def upload_video(request):
     if request.method == 'POST':
-        # 'video_file' é o nome da "chave" que o app Android enviará
+        # 1. Pega os dados do arquivo e do evento
         video_file = request.FILES.get('video_file')
+        event_name = request.POST.get('event_name')
+        
+        # --- REMOVIDO ---
+        # Não precisamos mais pegar o nome do arquivo do formulário
+        # original_filename = request.POST.get('original_filename')
 
+        # 2. Validação simplificada
         if not video_file:
-            return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo enviado.'}, status=400)
+            return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo de vídeo enviado.'}, status=400)
+        if not event_name:
+            return JsonResponse({'status': 'error', 'message': 'Nome do evento não fornecido.'}, status=400)
+        
+        # --- REMOVIDO ---
+        # A validação do nome do arquivo original não é mais necessária
+        # if not original_filename:
+        #     return JsonResponse({'status': 'error', 'message': 'Nome do arquivo original não fornecido.'}, status=400)
 
-        # Gera um nome de arquivo único para evitar colisões
-        # Ex: 1234abcd-5678-efgh-9012-ijklmnopqrst.mp4
-        file_extension = video_file.name.split('.')[-1]
-        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        # 3. Pega o nome do arquivo diretamente do objeto de upload
+        #    O objeto 'video_file' tem um atributo '.name'
+        # --- ALTERADO ---
+        filename = video_file.name
 
-        # Salva o arquivo no local de armazenamento padrão do Django
-        # (que pode ser o disco local ou um serviço como o S3, dependendo da sua configuração em settings.py)
-        file_path = default_storage.save(f'videos/{unique_filename}', video_file)
+        # 4. Constrói o caminho de salvamento com a pasta do evento e o nome original
+        # Ex: 'eventos/Casamento Joao e Maria/video_final_12345.mp4'
+        # --- ALTERADO ---
+        file_path = default_storage.save(os.path.join('eventos', event_name, filename), video_file)
 
-       # Versão corrigida e completa
+        # 5. Constrói a URL final para retornar ao app
         file_url = request.build_absolute_uri(default_storage.url(file_path))
 
-        # Retorna uma resposta de sucesso para o app Android
         return JsonResponse({
             'status': 'success',
             'message': 'Upload bem-sucedido!',

@@ -16,7 +16,15 @@ SECRET_KEY = "django-insecure-(2&=qb88e^*s(f)$5skb4lqi9*jwo*-ui!te=)nqp9_tqfp_g1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['137.131.146.149', '360eventos.com.br', 'www.360eventos.com.br']
+ALLOWED_HOSTS = [
+    '137.131.146.149',
+    '360eventos.com.br',
+    'www.360eventos.com.br',
+    
+    # Adicione estas duas linhas para acesso local
+    '127.0.0.1',
+    'localhost',
+]
 
 
 # Application definition
