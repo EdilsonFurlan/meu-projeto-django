@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('',include('inicio.urls')),
+    path('api/', include('pagamentos.urls')),  # <- isso inclui as rotas do app
 
 ]
 
