@@ -135,24 +135,35 @@ User = get_user_model()
 @csrf_exempt
 @api_view(['POST'])
 def register_and_activate(request):
-    username = request.data.get('username')
+    username = request.data.get('username') # Opcional, o app envia
     email = request.data.get('email')
     password = request.data.get('password')
     plan_days = request.data.get('planDays')
 
-    if not all([username, email, password, plan_days]):
-        return Response({'error': 'Todos os campos são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not all([email, password, plan_days]):
+        return Response({'error': 'Email, senha e plano são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if User.objects.filter(username=username).exists():
-        return Response({'error': 'Nome de usuário já existe.'}, status=status.HTTP_400_BAD_REQUEST)
-    
     if User.objects.filter(email=email).exists():
         return Response({'error': 'Email já cadastrado.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Se o username ainda for importante e precisar ser único
+    if username and User.objects.filter(username=username).exists():
+        return Response({'error': 'Nome de usuário já existe.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        user = User.objects.create_user(username=username, email=email, password=password)
+        # ***** AQUI ESTÁ A CORREÇÃO NO CADASTRO *****
+        # Usamos o nosso novo create_user que espera o email como identificador principal.
+        user = User.objects.create_user(
+            email=email, 
+            password=password, 
+            username=username # Passamos o username como um campo extra
+        )
+        # ***** FIM DA CORREÇÃO *****
+        
         user.ativar_plano(dias=int(plan_days))
+        
         token, created = Token.objects.get_or_create(user=user)
+
         return Response({
             'status': 'success',
             'message': 'Conta criada e plano ativado com sucesso!',
@@ -161,5 +172,6 @@ def register_and_activate(request):
             'pagamento_ativo': user.pagamento_esta_valido(),
             'validade': user.validade_pagamento
         }, status=status.HTTP_201_CREATED)
+
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
