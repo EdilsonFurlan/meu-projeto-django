@@ -13,6 +13,10 @@ from rest_framework import status
 from django.utils import timezone
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
+from django.views.decorators.csrf import csrf_exempt
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def status_pagamento(request):
@@ -108,3 +112,44 @@ def renovar_plano_teste(request):
         'nova_validade': usuario.validade_pagamento,
         'pagamento_ativo': usuario.pagamento_esta_valido() # Deve ser True
     })
+
+User = get_user_model()
+
+@csrf_exempt
+@api_view(['POST'])
+def register_and_activate(request):
+    username = request.data.get('username')
+    email = request.data.get('email')
+    password = request.data.get('password')
+    plan_days = request.data.get('planDays')
+
+    if not all([username, email, password, plan_days]):
+        return Response({'error': 'Todos os campos são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if User.objects.filter(username=username).exists():
+        return Response({'error': 'Nome de usuário já existe.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if User.objects.filter(email=email).exists():
+        return Response({'error': 'Email já cadastrado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # 1. Cria o usuário
+        user = User.objects.create_user(username=username, email=email, password=password)
+        
+        # 2. Ativa o plano para o novo usuário
+        user.ativar_plano(dias=int(plan_days))
+        
+        # 3. (Opcional, mas recomendado) Gera um token de login para ele automaticamente
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'status': 'success',
+            'message': 'Conta criada e plano ativado com sucesso!',
+            'token': token.key, # Retorna o token para o app já fazer o login
+            'username': user.username,
+            'pagamento_ativo': user.pagamento_esta_valido(),
+            'validade': user.validade_pagamento
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
