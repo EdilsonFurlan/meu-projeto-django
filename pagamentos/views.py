@@ -1,24 +1,29 @@
-from django.shortcuts import render
+# Imports existentes e novos que são necessários
+from django.utils import timezone
+from datetime import timedelta
+from django.contrib.auth import get_user_model, authenticate
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
+from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from rest_framework import status
-from rest_framework import serializers # <<< IMPORTANTE: ADICIONE ESTE IMPORT
-from django.utils import timezone
-from datetime import timedelta
-from django.contrib.auth import get_user_model, authenticate # <<< IMPORTANTE: ADICIONE ESTE IMPORT
-from django.views.decorators.csrf import csrf_exempt
 
-# --- Serializer Customizado para Login com Email ---
-# Este serializer diz ao Django para esperar um campo 'email' em vez de 'username'
-class AuthTokenSerializer(serializers.Serializer):
-    email = serializers.EmailField(label="Email")
+
+# --------------------------------------------------------------------------
+# PARTE 1: CRIAR ESTA NOVA CLASSE (AuthTokenSerializer)
+# Esta classe não existe no seu arquivo. Ela é nova e necessária.
+# Sua função é dizer ao Django para aceitar 'email' e 'password' no login.
+# --------------------------------------------------------------------------
+class EmailAuthTokenSerializer(serializers.Serializer):
+    email = serializers.EmailField(write_only=True, label="Email")
     password = serializers.CharField(
-        label="Password",
         style={'input_type': 'password'},
-        trim_whitespace=False
+        trim_whitespace=False,
+        write_only=True,
+        label="Password"
     )
 
     def validate(self, attrs):
@@ -26,20 +31,10 @@ class AuthTokenSerializer(serializers.Serializer):
         password = attrs.get('password')
 
         if email and password:
-            # Tenta autenticar usando o email como username
-            user = authenticate(request=self.context.get('request'),
-                                username=email, password=password)
-
-            if not user:
-                # Se a autenticação falhar, tenta encontrar o usuário pelo email
-                # e então autentica com o username dele. Isso cobre todas as bases.
-                User = get_user_model()
-                try:
-                    user_obj = User.objects.get(email=email)
-                    user = authenticate(request=self.context.get('request'),
-                                        username=user_obj.username, password=password)
-                except User.DoesNotExist:
-                    pass
+            # Como você definiu USERNAME_FIELD = 'email' no seu modelo Usuario,
+            # o sistema de autenticação do Django agora entende que o 'username'
+            # que ele espera é, na verdade, o campo de email.
+            user = authenticate(request=self.context.get('request'), username=email, password=password)
 
             if not user:
                 msg = 'Não foi possível fazer o login com as credenciais fornecidas.'
@@ -51,7 +46,35 @@ class AuthTokenSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
 
-# --- Views ---
+
+# --------------------------------------------------------------------------
+# PARTE 2: ALTERAR A SUA CLASSE EXISTENTE (LoginComTokenView)
+# Vamos substituir a sua implementação antiga pela nova, que usa o serializer.
+# --------------------------------------------------------------------------
+class LoginComTokenView(ObtainAuthToken):
+    # Esta linha diz à view para usar a nossa nova classe de serializer.
+    serializer_class = EmailAuthTokenSerializer
+
+    # Este método post agora usa a lógica padrão do DRF com nosso serializer customizado.
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        
+        return Response({
+            'token': token.key,
+            # user.get_username() vai retornar o email, pois definimos isso no modelo
+            'username': user.get_username(),
+            'validade': user.validade_pagamento,
+            'pagamento_ativo': user.pagamento_esta_valido(),
+        })
+
+
+# --------------------------------------------------------------------------
+# PARTE 3: MANTER O RESTO DO SEU CÓDIGO (SEM ALTERAÇÕES)
+# Todas as suas outras views continuam exatamente como estavam.
+# --------------------------------------------------------------------------
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -61,26 +84,6 @@ def status_pagamento(request):
         "pagamento_ativo": usuario.pagamento_esta_valido(),
         "validade": usuario.validade_pagamento
     })
-
-# ***** AQUI ESTÁ A CORREÇÃO PRINCIPAL *****
-class LoginComTokenView(ObtainAuthToken):
-    # Sobrescreve o serializer padrão para usar o nosso serializer de email
-    serializer_class = AuthTokenSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        
-        return Response({
-            'token': token.key,
-            'username': user.username,
-            'validade': user.validade_pagamento,
-            'pagamento_ativo': user.pagamento_esta_valido(),
-        })
-
-# O resto das suas views continua exatamente igual...
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
