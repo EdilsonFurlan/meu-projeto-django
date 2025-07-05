@@ -135,38 +135,34 @@ User = get_user_model()
 @csrf_exempt
 @api_view(['POST'])
 def register_and_activate(request):
-    username = request.data.get('username') # Opcional, o app envia
+    username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
-    plan_days = request.data.get('planDays')
 
-    if not all([email, password, plan_days]):
-        return Response({'error': 'Email, senha e plano são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not all([email, password]):
+        return Response({'error': 'Email e senha são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if User.objects.filter(email=email).exists():
         return Response({'error': 'Email já cadastrado.'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Se o username ainda for importante e precisar ser único
     if username and User.objects.filter(username=username).exists():
         return Response({'error': 'Nome de usuário já existe.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # ***** AQUI ESTÁ A CORREÇÃO NO CADASTRO *****
-        # Usamos o nosso novo create_user que espera o email como identificador principal.
         user = User.objects.create_user(
             email=email, 
             password=password, 
-            username=username # Passamos o username como um campo extra
+            username=username
         )
-        # ***** FIM DA CORREÇÃO *****
-        
-        user.ativar_plano(dias=int(plan_days))
-        
+
+        # 👉 Removido: não ativa plano aqui
+        # user.ativar_plano(dias=int(plan_days))  ❌
+
         token, created = Token.objects.get_or_create(user=user)
 
         return Response({
             'status': 'success',
-            'message': 'Conta criada e plano ativado com sucesso!',
+            'message': 'Conta criada com sucesso!',
             'token': token.key,
             'username': user.username,
             'pagamento_ativo': user.pagamento_esta_valido(),
