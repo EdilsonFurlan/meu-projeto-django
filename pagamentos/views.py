@@ -10,6 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from .models import Plano
+from .serializers import PlanoSerializer
 
 
 # --------------------------------------------------------------------------
@@ -171,3 +173,10 @@ def register_and_activate(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+def listar_planos(request):
+    planos = Plano.objects.all().order_by('dias')
+    serializer = PlanoSerializer(planos, many=True)
+    return Response(serializer.data)

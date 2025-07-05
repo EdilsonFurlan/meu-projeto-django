@@ -65,3 +65,20 @@ class Usuario(AbstractUser):
     def ativar_plano(self, dias):
         self.validade_pagamento = timezone.now().date() + timedelta(days=dias)
         self.save()
+
+    
+class Plano(models.Model):
+    nome = models.CharField(max_length=100)
+    dias = models.PositiveIntegerField()
+    descricao = models.TextField(blank=True)
+
+    preco_unico = models.DecimalField(max_digits=10, decimal_places=2)
+    preco_recorrente = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,  # ← permite valor nulo
+        blank=True  # ← opcional no admin
+    )
+
+    def __str__(self):
+        return self.nome
